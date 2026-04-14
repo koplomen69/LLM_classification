@@ -1,0 +1,31 @@
+<!-- Tab Chat -->
+<div class="tab-pane fade" id="chat-tab" role="tabpanel" aria-labelledby="chat-tab-btn">
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h2 class="card-title">Chat dengan Asisten AI</h2>
+            <div class="chat-box mb-3" id="chat-history">
+                <!-- Chat messages will be displayed here -->
+                <div class="conversation-container">
+                    <!-- Previous messages will be loaded here -->
+                </div>
+            </div>
+            <form id="chat-form" action="/chat" method="POST">
+                <div class="mb-3">
+                    <select class="form-select" id="model_select" name="model_select">
+                        <option value="Meta-Llama-3.1-8B-Instruct-Q4_K_M">Meta Llama 3.1 8B (Q4_K_M)</option>
+                        <option value="Meta-Llama-3.1-8B-Instruct-Q6_K">Meta Llama 3.1 8B (Q6_K)</option>
+                        <option value="komodo-7b-base.Q5_0">Komodo 7B (Q5_0)</option>
+                    </select>
+                </div>
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" id="user_input" name="user_input" placeholder="Ketik pesan Anda..." required>
+                    <input type="hidden" name="session_id" value="default">
+                    <button type="submit" class="btn btn-secondary">Kirim</button>
+                </div>
+            </form>
+            <div class="chat-controls">
+                <button id="clear-chat" class="btn btn-outline-danger">Hapus Riwayat Chat</button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,212 @@
+<!-- aduan_classification_tab.html - WITH EVALUATION -->
+<div class="tab-pane fade" id="aduan-classification-tab" role="tabpanel" aria-labelledby="aduan-classification-tab-btn">
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h2 class="card-title">Klasifikasi Text Aduan</h2>
+            <p class="card-text">Identifikasi apakah teks mengandung aduan/keluhan menggunakan model ML dan rule-based</p>
+            
+            <form method="POST" enctype="multipart/form-data" id="aduan-classification-form" action="/classify-aduan">
+                <!-- Model Selection -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Pilihan Model Klasifikasi</h5>
+                        <div class="mb-3">
+                            <label for="aduan_model_type" class="form-label">Tipe Model</label>
+                            <select class="form-select" id="aduan_model_type" name="aduan_model_type">
+                                <option value="svm_keyword" selected>SVM + Rules Keyword (Recommended)</option>
+                                <option value="svm_keyword_strict">SVM + Rules Keyword (Strict, minim false positive)</option>
+                                <option value="svm_only">SVM Only</option>
+                                <option value="enhanced_ml">Enhanced ML + Rule-Based (Legacy)</option>
+                                <option value="rule_only">Rule-Based Only</option>
+                                <option value="ml_only">ML Model Only</option>
+                            </select>
+                            <div class="form-text">
+                                <strong>SVM + Rules Keyword:</strong> Mode paling stabil untuk deteksi aduan (berdasarkan evaluasi terbaru)<br>
+                                <strong>SVM + Rules Keyword Strict:</strong> Lebih ketat, cocok untuk menekan false positive aduan<br>
+                                <strong>SVM Only:</strong> Hanya probabilitas SVM tanpa koreksi keyword<br>
+                                <strong>Enhanced ML + Rule-Based:</strong> Kombinasi model lama berbasis RandomForest + aturan<br>
+                                <strong>Rule-Based Only:</strong> Hanya menggunakan aturan keyword matching<br>
+                                <strong>ML Only:</strong> Hanya menggunakan model machine learning
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- File Upload -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Upload Dataset</h5>
+                        <div class="mb-3">
+                            <label for="aduan_file" class="form-label">Pilih File Dataset</label>
+                            <input class="form-control" type="file" id="aduan_file" name="file" accept=".csv,.xlsx" required>
+                            <div class="form-text">Format yang didukung: CSV, XLSX. Pastikan ada kolom 'text'</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Processing Options -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Opsi Pemrosesan</h5>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="save_detailed_scores" name="save_detailed_scores" checked>
+                            <label class="form-check-label" for="save_detailed_scores">
+                                Simpan skor detail dan probabilitas
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="filter_aduan_only" name="filter_aduan_only">
+                            <label class="form-check-label" for="filter_aduan_only">
+                                Hanya simpan data yang diklasifikasikan sebagai aduan
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="enable_checkpoint" name="enable_checkpoint" checked>
+                            <label class="form-check-label" for="enable_checkpoint">
+                                Aktifkan checkpoint (dapat dilanjutkan jika terhenti)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ground Truth for Evaluation -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Evaluasi Otomatis (Opsional)</h5>
+                        <div class="mb-3">
+                            <label for="aduan_ground_truth" class="form-label">Ground Truth Dataset</label>
+                            <input class="form-control" type="file" id="aduan_ground_truth" name="ground_truth_file" accept=".csv,.xlsx">
+                            <div class="form-text">Upload dataset dengan label sebenarnya untuk evaluasi otomatis</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info" role="alert">
+                    <h4 class="alert-heading">Proses Klasifikasi Aduan</h4>
+                    <p>System akan mengklasifikasikan teks ke dalam 3 kategori:</p>
+                    <ul class="mb-0">
+                        <li><strong>Aduan Text</strong>: Teks yang berisi keluhan/masalah</li>
+                        <li><strong>Not Aduan Text</strong>: Teks biasa/tidak berisi keluhan</li>
+                        <li><strong>Review Needed</strong>: Perlu peninjauan manual (ambigu)</li>
+                    </ul>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="aduan-classify-btn">
+                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    Mulai Klasifikasi Aduan
+                </button>
+
+                <!-- Progress Section -->
+                <div class="progress-container mt-4">
+                    <div class="progress mb-2">
+                        <div id="aduan-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                            0%
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <p id="aduan-progress-status" class="mb-0">Menunggu proses...</p>
+                        <p id="aduan-progress-stage" class="mb-0 text-muted">Stage: -</p>
+                    </div>
+                    <div id="aduan-processing-stats" class="mt-3"></div>
+                </div>
+
+                <!-- Results Section -->
+                <div id="aduan-result-message" class="mt-3"></div>
+                
+                <!-- Classification Results -->
+                <div id="aduan-classification-results" class="mt-4" style="display: none;">
+                    <h5>Hasil Klasifikasi Aduan:</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">File Hasil</h6>
+                                    <div id="aduan-result-files"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">Statistik</h6>
+                                    <div id="aduan-statistics"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Evaluation Results -->
+                <div id="aduan-evaluation-results" class="mt-4" style="display: none;">
+                    <h5>Hasil Evaluasi:</h5>
+                    <div id="aduan-evaluation-metrics"></div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Quick Test Section -->
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h4 class="card-title">Test Klasifikasi Cepat</h4>
+            <p class="card-text">Test klasifikasi aduan dengan input teks langsung:</p>
+            
+            <form id="quick-test-form">
+                <div class="mb-3">
+                    <label for="test_text" class="form-label">Masukkan Teks untuk Test</label>
+                    <textarea class="form-control" id="test_text" name="test_text" rows="3" 
+                              placeholder="Contoh: 'Saya ingin mengeluhkan tentang nilai yang belum masuk di sistem iGracias...'"></textarea>
+                </div>
+                <button type="submit" class="btn btn-outline-primary">Test Klasifikasi</button>
+            </form>
+
+            <div id="quick-test-results" class="mt-3" style="display: none;">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title">Hasil Test:</h6>
+                        <div id="quick-test-output"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Evaluation Section -->
+    <div class="card shadow-sm mt-4">
+        <div class="card-body">
+            <h4 class="card-title">Evaluasi Manual Model Aduan</h4>
+            <p class="card-text">Upload dataset untuk evaluasi mendalam model klasifikasi aduan:</p>
+            
+            <form id="manual-evaluation-form" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label for="evaluation_dataset" class="form-label">Dataset untuk Evaluasi</label>
+                    <input class="form-control" type="file" id="evaluation_dataset" name="evaluation_dataset" accept=".csv,.xlsx" required>
+                    <div class="form-text">
+                        Dataset harus mengandung kolom 'text' dan 'aduan_type' (atau 'corrected_type')<br>
+                        Format label: 'aduan_text' atau 'not_aduan_text'
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="evaluation_model_type" class="form-label">Model untuk Evaluasi</label>
+                    <select class="form-select" id="evaluation_model_type" name="evaluation_model_type">
+                        <option value="svm_keyword" selected>SVM + Rules Keyword</option>
+                        <option value="svm_keyword_strict">SVM + Rules Keyword (Strict)</option>
+                        <option value="svm_only">SVM Only</option>
+                        <option value="enhanced_ml">Enhanced ML + Rule-Based</option>
+                        <option value="rule_only">Rule-Based Only</option>
+                        <option value="ml_only">ML Model Only</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn btn-outline-warning">Jalankan Evaluasi Mendalam</button>
+            </form>
+
+            <div id="manual-evaluation-results" class="mt-4" style="display: none;">
+                <h5>Hasil Evaluasi Mendalam:</h5>
+                <div id="detailed-evaluation-metrics"></div>
+            </div>
+        </div>
+    </div>
+</div>

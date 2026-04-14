@@ -1,0 +1,205 @@
+<!-- Modal untuk Create New Configuration -->
+<div class="modal fade" id="createConfigModal" tabindex="-1" aria-labelledby="createConfigModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createConfigModalLabel">Create New Prompt Configuration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="create-config-form">
+                    <div class="mb-3">
+                        <label for="new-config-name" class="form-label">Configuration Name</label>
+                        <input type="text" class="form-control" id="new-config-name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new-config-description" class="form-label">Description</label>
+                        <textarea class="form-control" id="new-config-description" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="copy-from-select" class="form-label">Copy From (Optional)</label>
+                        <select class="form-select" id="copy-from-select">
+                            <option value="">Create from scratch</option>
+                            <!-- Options will be populated by JavaScript -->
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createNewConfiguration()">Create Configuration</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal untuk Test Results -->
+<div class="modal fade" id="testResultsModal" tabindex="-1" aria-labelledby="testResultsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="testResultsModalLabel">Prompt Test Results</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Input Text</h6>
+                        <p id="test-input-text" class="border p-2 bg-light"></p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Classification Result</h6>
+                        <p id="test-parsed-result" class="border p-2 bg-light"></p>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <h6>Generated Prompt</h6>
+                    <pre id="test-prompt-preview" class="border p-2 bg-light" style="max-height: 200px; overflow-y: auto; font-size: 0.8rem;"></pre>
+                </div>
+                
+                <div class="mt-3">
+                    <h6>LLM Output</h6>
+                    <pre id="test-llm-output" class="border p-2 bg-light" style="max-height: 150px; overflow-y: auto; font-size: 0.8rem;"></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal untuk Edit Component -->
+<div class="modal fade" id="editComponentModal" tabindex="-1" aria-labelledby="editComponentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editComponentModalLabel">Edit Prompt Component</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-component-form">
+                    <input type="hidden" id="edit-component-id">
+                    <div class="mb-3">
+                        <label for="edit-component-name" class="form-label">Component Name</label>
+                        <input type="text" class="form-control" id="edit-component-name" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-component-content" class="form-label">Content</label>
+                        <textarea class="form-control" id="edit-component-content" rows="15" style="font-family: monospace;"></textarea>
+                        <div class="form-text">
+                            Use <code>{text}</code> as placeholder for input text in base template.
+                        </div>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="edit-component-enabled">
+                        <label class="form-check-label" for="edit-component-enabled">Enable this component</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveComponentChanges()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal untuk Quick Preview -->
+<div class="modal fade" id="quickPreviewModal" tabindex="-1" aria-labelledby="quickPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quickPreviewModalLabel">Prompt Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="preview-text-input" class="form-label">Test Text</label>
+                    <input type="text" class="form-control" id="preview-text-input" placeholder="Enter text to see how prompt will be built" value="telyu krs saya error tidak bisa daftar mata kuliah">
+                </div>
+                <div class="mb-3">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="updatePromptPreview()">
+                        <i class="fas fa-sync"></i> Update Preview
+                    </button>
+                </div>
+                <h6>Generated Prompt</h6>
+                <pre id="prompt-preview-content" class="border p-3 bg-light" style="max-height: 400px; overflow-y: auto; font-size: 0.8rem; white-space: pre-wrap;"></pre>
+                <div class="mt-2">
+                    <small class="text-muted">
+                        Length: <span id="prompt-length">0</span> characters
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal untuk Configuration Settings -->
+<div class="modal fade" id="configSettingsModal" tabindex="-1" aria-labelledby="configSettingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="configSettingsModalLabel">Configuration Settings</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="config-settings-form">
+                    <input type="hidden" id="config-settings-id">
+                    <div class="mb-3">
+                        <label for="config-settings-name" class="form-label">Configuration Name</label>
+                        <input type="text" class="form-control" id="config-settings-name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="config-settings-description" class="form-label">Description</label>
+                        <textarea class="form-control" id="config-settings-description" rows="3"></textarea>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="config-settings-active">
+                        <label class="form-check-label" for="config-settings-active">Set as active configuration</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveConfigSettings()">Save Settings</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal untuk Delete Configuration -->
+<div class="modal fade" id="deleteConfigModal" tabindex="-1" aria-labelledby="deleteConfigModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteConfigModalLabel">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                    Delete Configuration
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <strong>Warning:</strong> This action cannot be undone!
+                </div>
+                <p>Are you sure you want to delete configuration <strong id="delete-config-name"></strong>?</p>
+                <p class="text-muted small">All components in this configuration will be permanently deleted.</p>
+                <input type="hidden" id="delete-config-id">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button type="button" class="btn btn-danger" onclick="confirmDeleteConfig()">
+                    <i class="fas fa-trash"></i> Delete Configuration
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

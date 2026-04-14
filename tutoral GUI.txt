@@ -1,0 +1,9 @@
+tutoral GUI
+buat env
+python -m venv venv
+
+aktifkan environment
+venv\Scripts\activate
+
+install library
+pip install flask ollama-python pyyaml

@@ -1,0 +1,50 @@
+Direktorat Akademik
+Direktorat Pasca Sarjana dan Advance Learning
+Direktorat Aset & Sustainability
+Direktorat Keuangan
+Direktorat Sumber Daya Manusia
+Direktorat Pusat Teknologi Informasi
+Direktorat Kemahasiswaan, Pengembangan Karir, Alumni
+
+
+keyword per direktorat
+aduan_keywords_kampus = [
+    # Direktorat Akademik
+    "krs", "khs", "jadwal kuliah", "nilai", "transkrip", "perkuliahan", "mata kuliah", "sks", "akademik",
+    "cuti", "rps", "perwalian", "wisuda", "bpa", "mbkm", "magang berdampak", "ijazah", "kurikulum",
+    "kalender akademik", "open library", "ktm", "yudisium", "tugas akhir", "registrasi", "konversi",
+
+    # Direktorat Pasca Sarjana dan Advance Learning
+    "s2", "s3", "pascasarjana", "program magister", "program doktor", "kelas profesi",
+    "lms", "sso", "self enrollment", "igracias", "kelas internasional", "pusat bahasa", "student exchange",
+
+    # Direktorat Aset & Sustainability
+    "gedung", "ruangan", "ac rusak", "lampu mati", "kamar mandi", "toilet", "kebersihan",
+    "parkiran", "lift", "tangga", "pemeliharaan", "aset kampus", "logistik", "colokan", "kantin",
+    "ruang konseling", "masjid", "gazebo",
+
+    # Direktorat Keuangan
+    "bpp", "ukt", "tagihan", "pembayaran", "bukti bayar", "tunggakan", "potongan biaya",
+    "sp2", "sp3", "rekening kampus", "kwitansi", "dana beasiswa", "biaya",
+
+    # Direktorat Sumber Daya Manusia
+    "dosen", "staff kampus", "gaji", "honor", "rekrutmen", "presensi dosen", "izin mengajar",
+    "surat tugas", "sdm", "fasilitas kesehatan", "fasilitas telekomunikasi", "beasiswa pegawai",
+
+    # Direktorat Pusat Teknologi Informasi
+    "wi-fi kampus", "internet", "login sso", "email kampus", "error sistem", "website kampus down",
+    "password reset", "vpn kampus", "server down", "pustik", "perbaikan bugs", "vps", "shared hosting",
+    "lan", "iot", "permintaan ip publik", "service desk", "puti",
+
+    # Direktorat Kemahasiswaan, Pengembangan Karir, Alumni
+    "ukm", "bem", "himpunan mahasiswa", "dpm", "ormawa", "kegiatan kampus", "event mahasiswa",
+    "alumni", "career center", "magang", "lowongan", "pengembangan karir", "surat keterangan aktif",
+    "prestasi", "lomba", "kompetisi", "konseling", "pkkmb", "asrama", "tak", "skpi", "ppkpt",
+    "kekerasan", "bullying", "cdc", "asuransi", "beasiswa",
+
+    # Kata-kata keluhan umum
+    "tolong", "mohon", "kenapa", "kok", "gimana", "belum", "rusak", "error", "lemot",
+    "tidak bisa", "bermasalah", "macet", "terlambat", "gangguan", "buruk", "jelek", "parah",
+    "mengecewakan", "tidak memuaskan", "nggak banget", "bikin kesel", "kurang", "segera ditangani",
+    "perbaiki", "ditindaklanjuti"
+]

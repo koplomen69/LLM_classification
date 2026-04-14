@@ -1,0 +1,17 @@
+flask 
+flask-socketio 
+flask-sqlalchemy
+langchain 
+langchain-community 
+llama-cpp-python
+scikit-learn 
+pandas 
+numpy 
+openpyxl
+tqdm 
+pyyaml 
+sqlalchemy
+transformers 
+datasets 
+accelerate 
+torch

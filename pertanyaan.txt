@@ -1,0 +1,6 @@
+pertanyaan
+
+- pengambilan data
+- metode
+- output hasil
+- 

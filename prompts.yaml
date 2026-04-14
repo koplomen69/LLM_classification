@@ -1,0 +1,75 @@
+# Daftar prompt untuk aplikasi klasifikasi dan chat
+prompts:
+  # Prompt untuk klasifikasi komentar mahasiswa Telkom University
+  classify_telkom:
+    type: single
+    # Template prompt dengan instruksi dan contoh few-shot (3 contoh)
+    template: |
+      <s>[INST] Anda adalah ahli klasifikasi komentar mahasiswa Telkom University (disingkat Telyu, Telu, atau Tel u). Klasifikasikan teks ke direktorat berdasarkan keyword dan hanya ada 7 direktorat di Telkom University, yaitu:
+      1. Direktorat: Akademik
+      2. Direktorat: Pasca Sarjana dan Advance Learning
+      3. Direktorat: Aset & Sustainability
+      4. Direktorat: Keuangan
+      5. Direktorat: Sumber Daya Manusia
+      6. Direktorat: Pusat Teknologi Informasi
+      7. Direktorat: Kemahasiswaan, Pengembangan Karir, Alumni
+
+      Langkah:
+      1. Identifikasi keyword utama (e.g., S2, loker, magang).
+      2. Cocokkan dengan direktorat (e.g., S2 -> Pasca Sarjana).
+      3. Jika tidak cocok, gunakan "Uncategorized".
+
+      OUTPUT HANYA DALAM FORMAT INI: Direktorat: [direktorat], Keyword: [keyword]. JANGAN TAMBAH TEKS LAIN!
+
+      Contoh:
+      Teks: Telyu! infokan loker buat saya dong -> Direktorat: Kemahasiswaan, Pengembangan Karir, Alumni, Keyword: loker
+      Teks: Telyu! Coffee buka ga ya? -> Direktorat: Aset & Sustainability, Keyword: coffee
+      Teks: Telyu! tips buat nyusun latar belakang TA dong -> Direktorat: Akademik, Keyword: TA
+      Teks: Telyu! Disini ada yg pernah ikut TPA buat daftar S2? itu testnya gimana ya? -> Direktorat: Pasca Sarjana, Keyword: S2
+      Teks: absen sini yg pernah kemalingan motor di sekitaran telyu! soalnya ak juga pernah -> Direktorat: Direktorat Aset & Sustainability, Keyword: kemalingan motor
+      Teks: Telyu! Telyu! Kalau nyari magang sendiri diluar msib itu masih bisa diconvert apa nggak ya sksnya? -> Direktorat: Kemahasiswaan, Pengembangan Karir, Alumni, Keyword: magang
+      Teks: Kita bayar bpp smester telyu! Kapan sih? -> Direktorat: Akademik, Keyword: BPP
+      Teks: Telyu! Apakah cuman ngandelin gelar semisal ipk tinggi atau aktif organisasi bisa ngasih peluang buat sukses dan mapan. kira² skill atau hal apa yang harus kita ketahui biar bisa sukses ya? -> Direktorat: Kemahasiswaan, Pengembangan Karir, Alumni, Keyword: sukses
+      Teks: Telyu! Kuesioner itu bakal berpengaruh sama nilai akhir semester kita gak ya? Apa nanti kalau di dosennya bentuknya anonim? -> Direktorat: Akademik, Keyword: Kuesioner
+      Teks: FOUND KTM SANI APRILIANI S1 ILMU KOMUNIKASI ANGKATAN 2020 kalau ada yg kenal dg kaka ini boleh dm twt/ig @.egguilty uda chat lostnfound telu tp ga di respon dri kemaren telyu! -> Direktorat: Aset & Sustainability, Keyword: KTM hilang
+      Teks: telyu! ini igracias kenapa ya? buka lms juga harus ngisi edom itu bgimana yaa? -> Direktorat: Pusat Teknologi Informasi, Keyword: LMS
+      Teks: Telyu! Minta saran hal apa yang harus di lakuin selama kuliah biar ga nyesel nanti setelah lulus terutama buat karir sama masa depan udah semester 3 kuliah - freelance Jarang nongkrong atau ikut kegiatan/organisasi bakal nyesel ga ya? -> Direktorat: Kemahasiswaan, Pengembangan Karir, Alumni, Keyword: karir
+      Teks: telyu! sekarang masi tanggal libur gasi? mau chat dosen takut ga sopan -> Direktorat: Akademik, Keyword: dosen
+      Teks: telyu! elektro sempro di minggu ini apa minggu depan? -> Direktorat: Akademik, Keyword: sempro
+      Teks: telyu! toss telyu! buka ga si ? -> Direktorat: Pusat Teknologi Informasi, Keyword: toss      
+      Teks: {text} [/INST]
+    input_variables:
+      - text
+    description: Klasifikasi komentar mahasiswa Telkom University ke direktorat yang relevan
+
+  # Prompt untuk chat
+  chat_friendly:
+    type: chat
+    template_jinja: |
+      {%- set ns = namespace(found=false) -%}
+      {%- for message in messages -%}
+          {%- if message['role'] == 'system' -%}
+              {%- set ns.found = true -%}
+          {%- endif -%}
+      {%- endfor -%}
+      {%- if not ns.found -%}
+          {{ '' + 'Below is an instruction that describes a task. Write a response that appropriately completes the request.' + '\\n\\n' }}
+      {%- endif -%}
+      {%- for message in messages -%}
+          {%- if message['role'] == 'system' -%}
+              {{ '' + message['content'] + '\\n\\n' }}
+          {%- else -%}
+              {%- if message['role'] == 'user' -%}
+                  {{-'### Instruction:\\n' + message['content'] + '\\n\\n'-}}
+              {%- else -%}
+                  {{-'### Response:\\n' + message['content'] + '\\n\\n' -}}
+              {%- endif -%}
+          {%- endif -%}
+      {%- endfor -%}
+      {%- if add_generation_prompt -%}
+          {{-'### Response:\\n'-}}
+      {%- endif -%}
+    input_variables:
+      - messages
+      - add_generation_prompt
+    description: Percakapan ramah sebagai asisten Telkom University

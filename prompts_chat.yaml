@@ -1,0 +1,33 @@
+# Prompt untuk chat
+prompts:
+  chat_friendly:
+    type: chat
+    template_jinja: |
+      {%- set ns = namespace(found=false) -%}
+      {%- for message in messages -%}
+          {%- if message['role'] == 'system' -%}
+              {%- set ns.found = true -%}
+          {%- endif -%}
+      {%- endfor -%}
+      {%- if not ns.found -%}
+      You are a helpful and friendly AI assistant for Telkom University. Please respond to the user's message in a clear and natural way.
+      {%- endif -%}
+
+      {%- for message in messages -%}
+          {%- if message['role'] == 'system' -%}
+              {{ message['content'] }}
+          {%- else -%}
+              {%- if message['role'] == 'user' -%}
+                  User: {{ message['content'] }}
+              {%- else -%}
+                  Assistant: {{ message['content'] }}
+              {%- endif -%}
+          {%- endif -%}
+      {%- endfor -%}
+      {%- if add_generation_prompt -%}
+      Assistant:
+      {%- endif -%}
+    input_variables:
+      - messages
+      - add_generation_prompt
+    description: Percakapan ramah sebagai asisten Telkom University
