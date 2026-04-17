@@ -4,13 +4,7 @@ import pandas as pd
 import time
 import builtins
 from tqdm import tqdm as original_tqdm
-try:
-    from langchain_core.prompts import PromptTemplate
-except ImportError:
-    # Backward compatibility for older LangChain versions.
-    from langchain.prompts import PromptTemplate
 from langchain_community.llms import LlamaCpp
-from langchain_core.output_parsers import StrOutputParser
 from prompt_manager import prompt_manager
 
 # ✅ P0 FIX: Import improvements dari suggested_improvements module
@@ -25,12 +19,11 @@ try:
         validate_keyword_against_text,
         is_generic_pattern,
         extract_direktorat_by_mention,
-        PerformanceMetrics,
     )
     IMPROVEMENTS_AVAILABLE = True
-    print("✅ Improvements module loaded successfully!")
+    builtins.print("Improvements module loaded successfully.")
 except ImportError as e:
-    print(f"⚠️ Improvements module not available: {e}")
+    builtins.print(f"Improvements module not available: {e}")
     IMPROVEMENTS_AVAILABLE = False
 
 
@@ -50,8 +43,8 @@ CLASSIFY_PROGRESS_UPDATE_EVERY = max(1, _env_int('CLASSIFY_PROGRESS_UPDATE_EVERY
 CLASSIFY_CHECKPOINT_EVERY = max(1, _env_int('CLASSIFY_CHECKPOINT_EVERY', 200))
 CLASSIFY_VERBOSE_PARSING = os.getenv('CLASSIFY_VERBOSE_PARSING', '0') == '1'
 CLASSIFY_DEFAULT_MODE = os.getenv('CLASSIFY_DEFAULT_MODE', 'pure_llm')
-CLASSIFY_USE_STOP_SEQUENCES = os.getenv('CLASSIFY_USE_STOP_SEQUENCES', '1') == '1'
-CLASSIFY_TEMPERATURE = float(os.getenv('CLASSIFY_TEMPERATURE', '0.0'))
+CLASSIFY_USE_STOP_SEQUENCES = os.getenv('CLASSIFY_USE_STOP_SEQUENCES', '0') == '1'
+CLASSIFY_TEMPERATURE = float(os.getenv('CLASSIFY_TEMPERATURE', '0.1'))
 CLASSIFY_EMPTY_RETRY_STRATEGY = os.getenv('CLASSIFY_EMPTY_RETRY_STRATEGY', 'db').strip().lower()
 CLASSIFY_STRICT_KEYWORD_DEFAULT = os.getenv('CLASSIFY_STRICT_KEYWORD_DEFAULT', '1') == '1'
 
@@ -341,31 +334,11 @@ class UniversalPromptOptimizer:
         
         return '\n\n'.join(selected)
 
-class UniversalMemoryManager:
-    def __init__(self, llm_instance):
-        self.llm = llm_instance
-        self.processed_count = 0
-        self.reset_interval = 100  # Reset setiap 100 teks
-    
-    def process_with_memory_management(self, prompt):
-        """Process dengan memory management"""
-        output = self.llm.invoke(prompt)
-        
-        self.processed_count += 1
-        
-        # Reset context setiap interval tertentu untuk hindari memory leak
-        if self.processed_count % self.reset_interval == 0:
-            self.llm.reset()
-            print("🔄 LLM context reset untuk memory management")
-        
-        return output
-
 # ==================== MAIN CLASSIFICATION SYSTEM ====================
 
 class ClassificationSystem:
     def __init__(self):
         self.optimizer = UniversalPromptOptimizer()
-        self.memory_manager = None
 
     def get_fast_mode_hint(self, processed_text):
         """Return a lightweight heuristic result only for fast mode."""
@@ -459,20 +432,22 @@ class ClassificationSystem:
 
         strong_hint = self.get_strong_keyword_directorat(processed_text)
 
-        if direktorat == 'Uncategorized' and strong_hint:
-            self.log_message(
-                'LLM output was Uncategorized; applying strong keyword heuristic override.',
-                'INFO'
-            )
-            return strong_hint
-
         inferred_from_keyword = self.infer_direktorat_from_keyword(keyword) if keyword else None
-        if direktorat == 'Uncategorized' and inferred_from_keyword:
-            self.log_message(
-                'LLM output was Uncategorized; inferring direktorat from keyword.',
-                'INFO'
-            )
-            return inferred_from_keyword
+
+        # Jika direktorat tidak valid / tidak ada, coba heuristic
+        valid_set = {
+            "Akademik", "Pasca Sarjana dan Advance Learning", "Aset & Sustainability",
+            "Keuangan", "Sumber Daya Manusia", "Pusat Teknologi Informasi",
+            "Kemahasiswaan, Pengembangan Karir, Alumni"
+        }
+        if direktorat not in valid_set:
+            if strong_hint:
+                self.log_message('Direktorat tidak valid; menerapkan override heuristik keyword kuat.', 'INFO')
+                return strong_hint
+            if inferred_from_keyword:
+                self.log_message('Direktorat tidak valid; inferensi dari keyword LLM.', 'INFO')
+                return inferred_from_keyword
+            direktorat = "Akademik"
 
         if strong_hint and strong_hint[0] != direktorat:
             if not keyword or keyword.strip().lower() in ['-', 'none', 'null', 'nan']:
@@ -500,8 +475,8 @@ class ClassificationSystem:
 
         lowered = (model_name or '').lower()
         if 'qwen' in lowered:
-            # Enforce one-line response for Qwen-based ChatML prompts.
-            return base_stops + ["<|im_end|>", "\n"]
+            # Avoid using a raw newline stop token; it can cut output at token-1.
+            return base_stops + ["<|im_end|>"]
         if 'llama' in lowered:
             return base_stops + ["<|eot_id|>"]
         return base_stops
@@ -544,6 +519,18 @@ class ClassificationSystem:
         suffix = self.build_strict_answer_suffix()
         prompt = prompt.rstrip()
 
+        # If the prompt already ends with an assistant opener, keep the opener as the
+        # final token and place instruction suffix before it.
+        llama3_assistant = "<|start_header_id|>assistant<|end_header_id|>"
+        if prompt.endswith(llama3_assistant):
+            head = prompt[:-len(llama3_assistant)].rstrip()
+            return head + suffix + "\n" + llama3_assistant + "\n"
+
+        chatml_assistant = "<|im_start|>assistant"
+        if prompt.endswith(chatml_assistant):
+            head = prompt[:-len(chatml_assistant)].rstrip()
+            return head + suffix + "\n" + chatml_assistant + "\n"
+
         if prompt.endswith("<|im_end|>"):
             return prompt[:-len("<|im_end|>")] + suffix + "<|im_end|>"
         if prompt.endswith("[/INST]"):
@@ -552,6 +539,34 @@ class ClassificationSystem:
             return prompt[:-len("</s>")] + suffix + "</s>"
 
         return prompt + suffix
+
+    def ensure_prompt_generation_ready(self, prompt, model_name=None):
+        """Normalize prompt ending so the model is asked to continue in assistant role."""
+        prompt = (prompt or '').rstrip()
+        lowered = (model_name or '').lower()
+
+        if 'qwen' in lowered:
+            if '<|im_start|>assistant' not in prompt:
+                if not prompt.endswith('<|im_end|>'):
+                    prompt += '\n<|im_end|>'
+                prompt += '\n<|im_start|>assistant\n'
+            return prompt
+
+        if any(name in lowered for name in ['llama', 'mistral', 'mixtral', 'komodo']):
+            # Llama-3 Chat template style: open assistant header explicitly.
+            if '<|start_header_id|>user<|end_header_id|>' in prompt:
+                if '<|start_header_id|>assistant<|end_header_id|>' not in prompt:
+                    if not prompt.endswith('<|eot_id|>'):
+                        prompt += '\n<|eot_id|>'
+                    prompt += '\n<|start_header_id|>assistant<|end_header_id|>\n'
+                return prompt
+
+            # Legacy [INST] style.
+            if not prompt.endswith('[/INST]') and '[INST]' in prompt:
+                prompt += ' [/INST]'
+            return prompt
+
+        return prompt
 
     def estimate_token_count(self, text):
         """Estimate token count from prompt length."""
@@ -645,8 +660,13 @@ class ClassificationSystem:
                     continue
 
                 normalized_direktorat = normalize_direktorat_name(str(raw_direktorat).strip())
-                if normalized_direktorat == "Uncategorized":
-                    # Abaikan label checkpoint yang tidak valid (contoh: "Error").
+                valid_set = {
+                    "Akademik", "Pasca Sarjana dan Advance Learning", "Aset & Sustainability",
+                    "Keuangan", "Sumber Daya Manusia", "Pusat Teknologi Informasi",
+                    "Kemahasiswaan, Pengembangan Karir, Alumni"
+                }
+                if normalized_direktorat not in valid_set:
+                    # Abaikan label checkpoint yang tidak valid (contoh: "Error", "Uncategorized").
                     continue
 
                 results[idx] = (normalized_direktorat, str(raw_keyword).strip())
@@ -673,7 +693,7 @@ class ClassificationSystem:
     def process_single_text(self, text, llm, config_id, classification_mode='pure_llm', model_name=None):
         """Process dengan parser yang diperbaiki"""
         if not text or not text.strip():
-            return "Uncategorized", "-"
+            return "Akademik", "-"
 
         if classification_mode == 'fast_mode':
             fast_result = self.get_fast_mode_hint(text)
@@ -701,6 +721,7 @@ class ClassificationSystem:
 
             # Penutup tegas agar model output konsisten dari first-pass.
             prompt = self.insert_strict_suffix(prompt)
+            prompt = self.ensure_prompt_generation_ready(prompt, model_name=model_name)
 
             model_context = self.get_model_context_limit(model_name)
             max_prompt_tokens = max(64, model_context - CLASSIFY_MAX_OUTPUT_TOKENS)
@@ -762,7 +783,7 @@ class ClassificationSystem:
                     # Retry with the same DB/fallback prompt but without stop sequences.
                     retry_kwargs = {
                         'max_tokens': max(CLASSIFY_MAX_OUTPUT_TOKENS, 96),
-                        'temperature': 0.0,
+                        'temperature': 0.1,
                     }
                     output = llm.invoke(prompt, **retry_kwargs)
                 elif strategy == 'compact':
@@ -777,7 +798,7 @@ class ClassificationSystem:
                 else:
                     retry_kwargs = {
                         'max_tokens': max(CLASSIFY_MAX_OUTPUT_TOKENS, 96),
-                        'temperature': 0.0,
+                        'temperature': 0.1,
                     }
                     output = llm.invoke(prompt, **retry_kwargs)
 
@@ -791,8 +812,11 @@ class ClassificationSystem:
             
         except Exception as e:
             self.log_message(f"Text processing error: {e}", "ERROR")
-            # Gunakan fallback label aman agar output tetap bisa dipakai.
-            return "Uncategorized", "-"
+            # Gunakan fallback ke Akademik agar semua teks tetap berlabel direktorat.
+            strong_hint = self.get_strong_keyword_directorat(text) if text else None
+            if strong_hint:
+                return strong_hint
+            return "Akademik", "-"
 
     def calculate_stats(self, start_time, processed_count, total_rows):
         """Calculate processing statistics"""
@@ -851,7 +875,6 @@ class ClassificationSystem:
         
         # Initialize LLM
         llm = init_llm_universal(model_name, ctx_size_override)
-        self.memory_manager = UniversalMemoryManager(llm)
         
         # Checkpoint setup
         checkpoint_path = f"{os.path.splitext(file_path)[0]}_checkpoint.xlsx"
@@ -888,7 +911,7 @@ class ClassificationSystem:
                 self.save_checkpoint(df, results, checkpoint_path)
         
         # Final processing
-        df['Direktorat'] = [r[0] if r else "Uncategorized" for r in results]
+        df['Direktorat'] = [r[0] if r else "Akademik" for r in results]
         df['Keyword'] = [r[1] if r else "-" for r in results]
         
         # Apply strict keyword matching if enabled
@@ -1055,10 +1078,10 @@ def parse_llm_output(output, original_text=None):
     ]
     
     # Use pre-compiled patterns jika available
+    direktorat = None
+    keyword = "-"
+
     if IMPROVEMENTS_AVAILABLE and PARSING_PATTERNS_COMPILED:
-        direktorat = "Uncategorized"
-        keyword = "-"
-        
         for pattern_name, regex in PARSING_PATTERNS_COMPILED.items():
             matches = regex.findall(output)
             if matches:
@@ -1078,14 +1101,14 @@ def parse_llm_output(output, original_text=None):
                         continue
                     
                     normalized = normalize_direktorat_name(raw_direktorat)
-                    if normalized != "Uncategorized":
+                    if normalized in valid_direktorats:
                         direktorat = normalized
                         keyword = raw_keyword
                         if CLASSIFY_VERBOSE_PARSING:
                             print(f"🎯 Selected: '{direktorat}' with keyword: '{keyword}'")
                         break
                 
-                if direktorat != "Uncategorized":
+                if direktorat:
                     break
     else:
         # Old pattern matching code (fallback)
@@ -1099,9 +1122,6 @@ def parse_llm_output(output, original_text=None):
             r'→\s*Direktorat:\s*([^,\n]+?)\s*(?:,|\n)\s*Keyword:\s*([^\n]+)',
             r'Direktorat:\s*([^,\n]+?)\s*(?:,|\n)\s*Keyword:\s*([^\n]+)',
         ]
-        
-        direktorat = "Uncategorized"
-        keyword = "-"
         
         for pattern in patterns:
             matches = re.findall(pattern, output, re.IGNORECASE | re.MULTILINE | re.DOTALL)
@@ -1119,18 +1139,21 @@ def parse_llm_output(output, original_text=None):
                         continue
                     
                     normalized = normalize_direktorat_name(raw_direktorat)
-                    if normalized != "Uncategorized":
+                    if normalized in valid_direktorats:
                         direktorat = normalized
                         keyword = current_keyword
                         break
                 
-                if direktorat != "Uncategorized":
+                if direktorat:
                     break
     
-    # Fallback: cari direktorat mention
-    if direktorat == "Uncategorized":
+    # Fallback: cari direktorat mention di output LLM
+    if not direktorat:
         if IMPROVEMENTS_AVAILABLE:
-            direktorat, keyword, _ = extract_direktorat_by_mention(output, valid_direktorats)
+            found_dir, found_kw, _ = extract_direktorat_by_mention(output, valid_direktorats)
+            if found_dir in valid_direktorats:
+                direktorat = found_dir
+                keyword = found_kw
         else:
             for valid_dir in valid_direktorats:
                 if valid_dir.lower() in output.lower():
@@ -1138,6 +1161,20 @@ def parse_llm_output(output, original_text=None):
                     keyword = extract_keyword_near_mention(output, valid_dir)
                     break
     
+    # Fallback akhir: gunakan keyword hint dari original text untuk menentukan direktorat
+    if not direktorat and original_text:
+        # Coba infer dari keyword yang dihasilkan LLM
+        kw_inferred = _infer_direktorat_from_keyword_static(keyword)
+        if kw_inferred:
+            direktorat = kw_inferred
+        else:
+            # Coba cari keyword kuat di teks asli
+            direktorat = _infer_direktorat_from_text_static(original_text)
+    
+    # Fallback mutlak: jika masih kosong, gunakan Akademik
+    if not direktorat:
+        direktorat = "Akademik"
+
     # P0 FIX: Validate keyword terhadap original text jika available
     if original_text and IMPROVEMENTS_AVAILABLE:
         keyword = validate_keyword_against_text(keyword, original_text)
@@ -1149,6 +1186,60 @@ def parse_llm_output(output, original_text=None):
         print("=" * 60)
     
     return direktorat, keyword
+
+def _infer_direktorat_from_keyword_static(keyword_text):
+    """Infer direktorat dari keyword string (versi standalone, tidak butuh instance)."""
+    if not keyword_text or keyword_text.strip().lower() in ['-', 'none', 'null', 'nan']:
+        return None
+    kw = keyword_text.lower()
+    keyword_map = {
+        'aplikasi': 'Pusat Teknologi Informasi', 'login': 'Pusat Teknologi Informasi',
+        'akun': 'Pusat Teknologi Informasi', 'lms': 'Pusat Teknologi Informasi',
+        'sso': 'Pusat Teknologi Informasi', 'wifi': 'Pusat Teknologi Informasi',
+        'igracias': 'Pusat Teknologi Informasi',
+        'bpp': 'Keuangan', 'ukt': 'Keuangan', 'biaya': 'Keuangan',
+        'bayar': 'Keuangan', 'tagihan': 'Keuangan', 'pembayaran': 'Keuangan',
+        'magang': 'Kemahasiswaan, Pengembangan Karir, Alumni',
+        'kp': 'Kemahasiswaan, Pengembangan Karir, Alumni',
+        'loker': 'Kemahasiswaan, Pengembangan Karir, Alumni',
+        'alumni': 'Kemahasiswaan, Pengembangan Karir, Alumni',
+        'beasiswa': 'Kemahasiswaan, Pengembangan Karir, Alumni',
+        'karir': 'Kemahasiswaan, Pengembangan Karir, Alumni',
+        's2': 'Pasca Sarjana dan Advance Learning', 's3': 'Pasca Sarjana dan Advance Learning',
+        'tpa': 'Pasca Sarjana dan Advance Learning', 'pasca': 'Pasca Sarjana dan Advance Learning',
+        'krs': 'Akademik', 'sks': 'Akademik', 'nilai': 'Akademik',
+        'sidang': 'Akademik', 'yudisium': 'Akademik', 'tugas akhir': 'Akademik',
+        'transkrip': 'Akademik', 'perwalian': 'Akademik',
+        'parkir': 'Aset & Sustainability', 'gedung': 'Aset & Sustainability',
+        'fasilitas': 'Aset & Sustainability', 'aset': 'Aset & Sustainability',
+        'dosen': 'Sumber Daya Manusia', 'edom': 'Sumber Daya Manusia',
+        'sdm': 'Sumber Daya Manusia', 'bimbingan': 'Sumber Daya Manusia',
+        'pegawai': 'Sumber Daya Manusia',
+    }
+    for alias, direktorat in keyword_map.items():
+        if alias in kw:
+            return direktorat
+    return None
+
+
+def _infer_direktorat_from_text_static(text):
+    """Infer direktorat dari teks mentah menggunakan aturan keyword kuat."""
+    t = (text or '').lower()
+    strong_rules = [
+        ('Pusat Teknologi Informasi', ['aplikasi', 'login', 'akun', 'igracias', 'lms', 'sso', 'wifi', 'sistem']),
+        ('Aset & Sustainability', ['parkir', 'gedung', 'fasilitas', 'spanduk', 'tult', 'aset']),
+        ('Keuangan', ['pembayaran', 'bpp', 'ukt', 'biaya', 'tagihan', 'bayar', 'semesteran']),
+        ('Kemahasiswaan, Pengembangan Karir, Alumni', ['magang', 'kp', 'loker', 'karir', 'alumni', 'beasiswa', 'organisasi']),
+        ('Pasca Sarjana dan Advance Learning', ['s2', 's3', 'tpa', 'pasca sarjana', 'pasca', 'advance learning']),
+        ('Akademik', ['krs', 'sks', 'nilai', 'sidang', 'yudisium', 'tugas akhir', 'transkrip', 'perwalian']),
+        ('Sumber Daya Manusia', ['dosen', 'edom', 'bimbingan', 'sdm', 'kepegawaian', 'pegawai']),
+    ]
+    for direktorat, keywords in strong_rules:
+        for kw in keywords:
+            if kw in t:
+                return direktorat
+    return "Akademik"
+
 
 def extract_keyword_near_mention(output, direktorat_mentioned):
     """Extract keyword yang dekat dengan mention direktorat"""
@@ -1213,8 +1304,8 @@ def normalize_direktorat_name(raw_direktorat):
         if variant in normalized or normalized in variant:
             return standard
     
-    # Unknown labels (mis. "Error") harus dianggap tidak valid.
-    return "Uncategorized"
+    # Tidak ada match - fallback ke Akademik
+    return "Akademik"
 
 def clean_keyword(keyword):
     """✅ Bersihkan keyword dari karakter yang tidak diinginkan"""
@@ -1232,64 +1323,6 @@ def clean_keyword(keyword):
     keyword = ' '.join(keyword.split())
     
     return keyword
-
-def get_valid_keywords():
-    keywords = set()
-    try:
-        # Try to parse the keywords component content
-        keyword_comp = None
-        try:
-            # try to get existing active config components
-            active = prompt_manager.get_active_config()
-            if active:
-                comps = prompt_manager.get_config_components(active.id)
-                for c in comps:
-                    if c.component_type == 'keywords':
-                        keyword_comp = c.content
-                        break
-        except Exception:
-            # fallback to default_components dictionary if present
-            if hasattr(prompt_manager, 'default_components') and 'keywords' in prompt_manager.default_components:
-                keyword_comp = prompt_manager.default_components['keywords']['default_content']
-        
-        if keyword_comp:
-            # Find lines after ":" that contain keywords
-            parts = re.split(r'\n|\r', keyword_comp)
-            for line in parts:
-                if ':' in line:
-                    # take substring after ':'
-                    _, after = line.split(':', 1)
-                    # split by commas
-                    pieces = re.split(r',|;', after)
-                    for p in pieces:
-                        w = p.strip()
-                        # filter short empty tokens
-                        if len(w) >= 2:
-                            # remove words like "Keywords" if present
-                            w = re.sub(r'Keywords|Primary Keywords|Secondary Keywords|Direktorat', '', w, flags=re.IGNORECASE).strip()
-                            if w:
-                                # some tokens are phrases; include them lowercased
-                                keywords.add(w.lower())
-        # fallback manual list if still empty
-        if not keywords:
-            manual = [
-                'krs','nilai','transkrip','perkuliahan','mata kuliah','sks','cuti akademik','rps','perwalian',
-                'ipk','jadwal','semester','s2','s3','wisuda','wifi','password','parkiran','parkir','gedung',
-                'bpp','biaya','bayar','dosen','mahasiswa','staff','lms','puti','igracias','ktm',
-                'magang','msib','kp','puti','igracias','tugas akhir','registrasi akademik'
-            ]
-            keywords.update([k.lower() for k in manual])
-    except Exception as e:
-        # worst-case fallback
-        keywords = {
-            'krs','nilai','transkrip','perkuliahan','sks','cuti akademik','rps','perwalian',
-            'ipk','jadwal','semester','s2','s3','wisuda','wifi','password','parkiran','parkir','gedung',
-            'bpp','biaya','bayar','dosen','mahasiswa','staff','lms','puti','igracias','ktm',
-            'magang','msib','kp'
-        }
-    return set(k.lower() for k in keywords)
-
-VALID_KEYWORDS = get_valid_keywords()
 
 def normalize_candidate_keywords(keyword_str):
     """✅ Split keyword string returned by LLM into candidate keywords."""
@@ -1326,7 +1359,7 @@ def keyword_present_in_text(processed_text, candidate):
     # for single token, use word boundary
     return re.search(r'\b' + re.escape(c) + r'\b', t) is not None
 
-def init_llm_universal(model_name=None, ctx_size_override=None, performance_mode=True):
+def init_llm_universal(model_name=None, ctx_size_override=None, performance_mode=None):
     """Universal model initializer untuk semua model
     
     Args:
@@ -1424,7 +1457,7 @@ def init_llm_universal(model_name=None, ctx_size_override=None, performance_mode
         # Di Windows mode performa, coba GPU terlebih dulu agar inferensi lebih cepat.
         'n_gpu_layers': windows_gpu_layers if is_windows else 25,
         'f16_kv': True,
-        'temperature': 0.0,
+        'temperature': 0.1,
         'top_p': 0.9,
         'top_k': 40,
         'n_threads': default_threads,
@@ -1442,7 +1475,7 @@ def init_llm_universal(model_name=None, ctx_size_override=None, performance_mode
     if performance_mode:
         common_params['n_batch'] = 256          # Reduce batch size
         common_params['f16_kv'] = False         # Disable fp16 
-        common_params['temperature'] = 0.0      # Balanced (not too low to break format)
+        common_params['temperature'] = 0.1     # Balanced (not too low to break format)
         common_params['top_p'] = 0.9            # Standard (keep format compliance)
         common_params['top_k'] = 40             # Standard
         common_params['repeat_penalty'] = 1.1   # Standard
@@ -1547,7 +1580,7 @@ def init_llm_universal(model_name=None, ctx_size_override=None, performance_mode
         windows_ultra_safe.update({
             'use_mmap': False,
             'n_batch': 64,
-            'temperature': 0.0,
+            'temperature': 0.1,
         })
         attempts.append((
             f"selected:{model_name}:windows_ultra_safe",

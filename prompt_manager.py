@@ -8,6 +8,28 @@ class PromptManager:
     def __init__(self):
         # No in-memory defaults: prompt content lives in the database.
         pass
+
+    def ensure_generation_ready_prompt(self, prompt: str) -> str:
+        """Ensure chat-template prompts end at an assistant turn for generation."""
+        text = (prompt or '').rstrip()
+
+        # Llama-3 chat header style.
+        if '<|start_header_id|>user<|end_header_id|>' in text:
+            if '<|start_header_id|>assistant<|end_header_id|>' not in text:
+                if not text.endswith('<|eot_id|>'):
+                    text += '\n<|eot_id|>'
+                text += '\n<|start_header_id|>assistant<|end_header_id|>\n'
+            return text
+
+        # ChatML style.
+        if '<|im_start|>user' in text:
+            if '<|im_start|>assistant' not in text:
+                if not text.endswith('<|im_end|>'):
+                    text += '\n<|im_end|>'
+                text += '\n<|im_start|>assistant\n'
+            return text
+
+        return text
     
     def clean_uncategorized_instruction(self, text: str) -> str:
         """Remove explicit instructions that encourage 'Uncategorized' output."""
@@ -74,14 +96,16 @@ class PromptManager:
         extra_components = [c for c in extra_components if c]
 
         if not extra_components:
-            return base_text
+            return self.ensure_generation_ready_prompt(base_text)
 
         if '<|im_start|>assistant' in base_text and '<|im_end|>' not in base_text:
             # Base prompt already opens the assistant block; keep additional
             # instructions inside the same ChatML assistant message.
-            return base_text + '\n\n' + '\n\n'.join(extra_components)
+            prompt_text = base_text + '\n\n' + '\n\n'.join(extra_components)
+            return self.ensure_generation_ready_prompt(prompt_text)
 
-        return '\n\n'.join([base_text] + extra_components)
+        prompt_text = '\n\n'.join([base_text] + extra_components)
+        return self.ensure_generation_ready_prompt(prompt_text)
     
     def create_new_config(self, name: str, description: str = "", copy_from: Optional[int] = None) -> PromptConfig:
         """Create new prompt configuration"""
