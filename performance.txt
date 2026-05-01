@@ -1,0 +1,4 @@
+Qwen2.5-7B-Instruct-GPTQ-Int4-q4_0 CPU 0% / Proc 0% | MEM 80.4% (6922.9 MB), GPU 95% mem 7830.7MB/8188.0MB 40.3 minutes
+qwen 3 instruct CPU 0% / Proc 0% | MEM 80.4% (6922.9 MB), GPU 95% mem 7830.7MB/8188.0MB 205.3 minutes
+Meta-Llama-3.1-8B-Instruct-Q6_K CPU 0% / Proc 0% | MEM 86.1% (6912.0 MB), GPU 12% mem 8069.3MB/8188.0MB 106.4 minutes
+komodo-7b-chat.gguf-q4_0 CPU 0% / Proc 0% | MEM 71% (4580.9 MB), GPU 80% mem 7374.0MB/8188.0MB 25.6 minutes

@@ -98,10 +98,30 @@ class PromptManager:
         if not extra_components:
             return self.ensure_generation_ready_prompt(base_text)
 
-        if '<|im_start|>assistant' in base_text and '<|im_end|>' not in base_text:
-            # Base prompt already opens the assistant block; keep additional
-            # instructions inside the same ChatML assistant message.
-            prompt_text = base_text + '\n\n' + '\n\n'.join(extra_components)
+        # Handle ChatML format (Qwen-style)
+        chatml_assistant = '<|im_start|>assistant'
+        if chatml_assistant in base_text and '<|im_end|>' not in base_text:
+            # Keep assistant opener as the final token so generation continues
+            # in assistant role. Extra components are inserted before it.
+            trimmed_base = base_text.rstrip()
+            if trimmed_base.endswith(chatml_assistant):
+                head = trimmed_base[:-len(chatml_assistant)].rstrip()
+                prompt_text = head + '\n\n' + '\n\n'.join(extra_components) + '\n' + chatml_assistant + '\n'
+            else:
+                prompt_text = base_text + '\n\n' + '\n\n'.join(extra_components)
+            return self.ensure_generation_ready_prompt(prompt_text)
+
+        # Handle Llama-3 format
+        llama3_assistant = '<|start_header_id|>assistant<|end_header_id|>'
+        if llama3_assistant in base_text:
+            # Keep assistant opener as the final token so generation continues
+            # in assistant role. Extra components are inserted before it.
+            trimmed_base = base_text.rstrip()
+            if trimmed_base.endswith(llama3_assistant):
+                head = trimmed_base[:-len(llama3_assistant)].rstrip()
+                prompt_text = head + '\n\n' + '\n\n'.join(extra_components) + '\n' + llama3_assistant + '\n'
+            else:
+                prompt_text = base_text + '\n\n' + '\n\n'.join(extra_components)
             return self.ensure_generation_ready_prompt(prompt_text)
 
         prompt_text = '\n\n'.join([base_text] + extra_components)

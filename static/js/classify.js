@@ -202,6 +202,19 @@ function quickTestPrompt() {
         console.error('Error testing prompt:', error);
         alert('Error testing prompt: ' + error.message);
     });
+    socket.on('resource_update', (data) => {
+        console.log('Received resource update:', data);
+        try {
+            const procRssMB = data.proc_rss_bytes ? (data.proc_rss_bytes / 1024 / 1024).toFixed(1) : '0.0';
+            const gpuPart = (data.gpu_util !== undefined) ? `, GPU ${data.gpu_util}% mem ${(data.gpu_mem_used/1024/1024).toFixed(1)}MB/${(data.gpu_mem_total/1024/1024).toFixed(1)}MB` : '';
+            const msg = `CPU ${data.cpu_system_pct}% / Proc ${data.cpu_proc_pct}% | MEM ${data.mem_system_pct}% (${procRssMB} MB)${gpuPart}`;
+            appendRuntimeLog(msg);
+            const hw = document.getElementById('hardware-stats');
+            if (hw) hw.textContent = msg;
+        } catch (e) {
+            console.error('Resource update render error', e);
+        }
+    });
 }
 
 function triggerAutoDownload(filePath) {
@@ -415,6 +428,48 @@ function setupClassificationSocket() {
                 response: data.result,
                 saved_at: new Date().toISOString()
             });
+        }
+    });
+    // Resource polling fallback (in case socket updates are missed)
+    let _resourcePollHandle = null;
+    function startResourcePolling() {
+        if (_resourcePollHandle) return;
+        _resourcePollHandle = setInterval(async () => {
+            try {
+                const res = await fetch('/api/resource_snapshot');
+                if (!res.ok) return;
+                const j = await res.json();
+                if (j && j.snapshot) {
+                    const data = j.snapshot;
+                    const procRssMB = data.proc_rss_bytes ? (data.proc_rss_bytes / 1024 / 1024).toFixed(1) : '0.0';
+                    const gpuPart = (data.gpu_util !== undefined) ? `, GPU ${data.gpu_util}% mem ${(data.gpu_mem_used/1024/1024).toFixed(1)}MB/${(data.gpu_mem_total/1024/1024).toFixed(1)}MB` : '';
+                    const msg = `CPU ${data.cpu_system_pct}% / Proc ${data.cpu_proc_pct}% | MEM ${data.mem_system_pct}% (${procRssMB} MB)${gpuPart}`;
+                    appendRuntimeLog(msg);
+                    const hw = document.getElementById('hardware-stats');
+                    if (hw) hw.textContent = msg;
+                }
+            } catch (e) {
+                console.error('Resource poll error', e);
+            }
+        }, 3000);
+    }
+    function stopResourcePolling() {
+        if (_resourcePollHandle) {
+            clearInterval(_resourcePollHandle);
+            _resourcePollHandle = null;
+        }
+    }
+
+    // Start/stop polling based on progress events
+    socket.on('progress_update', (data) => {
+        try {
+            if (data && data.percent !== undefined && data.percent < 100) {
+                startResourcePolling();
+            } else {
+                stopResourcePolling();
+            }
+        } catch (e) {
+            console.error('Resource polling control error', e);
         }
     });
 }

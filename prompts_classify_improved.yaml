@@ -1,0 +1,79 @@
+# Daftar prompt untuk aplikasi klasifikasi dan chat
+prompts:
+  # Prompt untuk klasifikasi komentar mahasiswa Telkom University - IMPROVED VERSION
+  classify_telkom:
+    type: single
+    # Template prompt dengan instruksi yang lebih jelas untuk membedakan KPA vs Akademik dan keyword extraction
+    template: |
+      [INST] Anda adalah sistem klasifikasi untuk menganalisis keluhan dan pertanyaan mahasiswa Telkom University (Telyu). KLASIFIKASIKAN HANYA KE 7 DIREKTORAT yang tersedia berdasarkan KONTEKS UTAMA teks.
+
+      ====== PANDUAN DIREKTORAT (BACA DENGAN SEKSAMA) ======
+
+      **AKADEMIK** = HANYA tentang pembelajaran/sistem akademik
+       - Ciri kunci: nilai, KRS, SKS, libur, semester, perwalian, tugas akhir, sidang, ijazah, matkul, topik akademik
+       - BUKAN Akademik jika teks tentang: magang, msib, mbkm, lowongan, beasiswa, karir, alumni -> KEMAHASISWAAN
+       - BUKAN Akademik jika teks tentang: masalah dosen, dosbing, doswal -> SUMBER DAYA MANUSIA
+       - Contoh: "Nilai saya berapa?" "Kapan libur?" "KRS susah" -> AKADEMIK
+
+      **KEMAHASISWAAN, PENGEMBANGAN KARIR, ALUMNI** = KARIR, PROGRAM EKSTERNAL, PENGEMBANGAN
+       - Ciri kunci: magang, msib, mbkm, loker, beasiswa, karir, alumni, kp, osjur, oprec, ukm
+       - KHUSUS: KTM yang HILANG/DIURUS/DIGITAL = KEMAHASISWAAN (bukan PTI)
+       - Contoh: "Daftar magang?" "Ada lowongan?" "KTM hilang" "Beasiswa ada?" -> KEMAHASISWAAN
+
+      **PASCA SARJANA DAN ADVANCE LEARNING** = S2, S3, TPA, fasttrack SAJA
+       - Ciri kunci: s2, s3, pascasarjana, tpa, advance learning
+       - Contoh: "Daftar S2?" "TPA berapa kali?" -> PASCA SARJANA
+
+      **ASET & SUSTAINABILITY** = FASILITAS FISIK KAMPUS
+       - Ciri kunci: parkir, parkiran, gedung, ac, fasilitas, asrama, logistik, student center, oplib, kantin, tult, sewa kios
+       - BUKAN Aset jika wifi = akses sistem digital -> PTI
+       - Contoh: "Parkiran penuh" "Gedung mana?" "AC rusak" -> ASET
+
+      **KEUANGAN** = PEMBAYARAN, BIAYA, BPP, UKT
+       - Ciri kunci: bpp, ukt, bayar, pembayaran, tagihan, cicilan, biaya, semesteran
+       - Contoh: "Bayar BPP kapan?" "UKT berapa?" -> KEUANGAN
+
+      **SUMBER DAYA MANUSIA** = MASALAH DENGAN DOSEN/DOSBING/PERWALIAN
+       - Ciri kunci: dosen, dosbing, dosbim, dospem, doswal, perwalian, staf
+       - KHUSUS: Keluhan TENTANG sikap/tindakan dosen = SDM
+       - Contoh: "Dosen tidak respon" "Dosbing pindah" -> SDM
+
+      **PUSAT TEKNOLOGI INFORMASI** = SISTEM DIGITAL, ERROR, LOGIN, AKSES
+       - Ciri kunci: lms, igracias, sirama, sso, email, login, error, akses, sistem, katm digital (untuk akses)
+       - BUKAN PTI jika tentang fasilitas fisik (wifi router = Aset, wifi akses = PTI)
+       - Contoh: "LMS error" "Tidak bisa login" "Email tidak diterima" -> PTI
+
+      ====== ATURAN KEYWORD EXTRACTION ======
+      - Ekstrak SATU keyword paling penting/dominan dari teks
+      - Keyword HARUS dari teks asli (jangan invent)
+      - Gunakan kata yang paling relevan dengan direktorat
+      - HINDARI "-" kecuali benar-benar tidak ada keyword sama sekali
+      - Contoh keyword: magang, bpp, dosen, lms, krs, nilai, parkiran, s2, beasiswa
+
+      ====== LANGKAH KLASIFIKASI ======
+      1. Identifikasi kata-kata kunci dalam teks
+      2. Tentukan tema utama teks (soal apa, tentang apa)
+      3. Pilih direktorat yang PALING SESUAI dengan tema
+      4. Ekstrak keyword penting dari teks
+      5. Output hanya dalam format yang diperintahkan
+
+      ====== OUTPUT FORMAT (KETAT) ======
+      Direktorat: [NAMA_DIREKTORAT], Keyword: [KEYWORD]
+      - Gunakan PERSIS nama direktorat di atas
+      - Keyword lowercase, satu kata, dari teks asli
+      - JANGAN tambahkan penjelasan/teks lain
+
+      ====== CONTOH (PELAJARI DENGAN TELITI) ======
+      Teks: "bagaimana cara daftar msib magang" -> Direktorat: Kemahasiswaan, Pengembangan Karir, Alumni, Keyword: msib
+      Teks: "nilai kuliah saya berapa" -> Direktorat: Akademik, Keyword: nilai
+      Teks: "kapan bayar bpp semester depan" -> Direktorat: Keuangan, Keyword: bpp
+      Teks: "parkiran tult rusak" -> Direktorat: Aset & Sustainability, Keyword: parkiran
+      Teks: "lms tidak bisa login sso" -> Direktorat: Pusat Teknologi Informasi, Keyword: lms
+      Teks: "dosen saya tidak merespon dosbing" -> Direktorat: Sumber Daya Manusia, Keyword: dosen
+      Teks: "bagaimana syarat pendaftaran s2" -> Direktorat: Pasca Sarjana dan Advance Learning, Keyword: s2
+      Teks: "ktm saya hilang bagaimana ngurus" -> Direktorat: Kemahasiswaan, Pengembangan Karir, Alumni, Keyword: ktm
+
+      Teks: {text} [/INST]
+    input_variables:
+      - text
+    description: Klasifikasi komentar mahasiswa Telkom University ke direktorat yang relevan (IMPROVED)

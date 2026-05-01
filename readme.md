@@ -30,6 +30,12 @@ venv\Scripts\activate
 pip install -r requirements.txt 
 
 ```
+# install untuk pengguna nvidia
+```bash
+$env:CMAKE_ARGS='-DGGML_CUDA=on'
+$env:FORCE_CMAKE='1'
+pip install --force-reinstall --no-cache-dir llama-cpp-python
+```
 # Download LLM Models
 
 ## Required Models

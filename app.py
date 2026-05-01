@@ -210,6 +210,17 @@ def get_available_models():
             'source': 'fallback'
         })
 
+
+@app.route('/api/resource_snapshot', methods=['GET'])
+def api_resource_snapshot():
+    """Return a lightweight resource snapshot (CPU/GPU/RAM) for UI polling/debug."""
+    try:
+        from classify import sample_resources
+        snapshot = sample_resources()
+        return jsonify({'status': 'success', 'snapshot': snapshot})
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
 def scan_actual_models():
     """Scan actual model files - improved version"""
     try:
